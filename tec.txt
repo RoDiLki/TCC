@@ -1,0 +1,206 @@
+\chapter{Scale Invariant Features Transform (SIFT) }
+O algoritmo para detecção de pontos de interesse em imagens SIFT foi proposto por {\it David G. Lowe} em 1999 e patenteado nos EUA pela {\it Univesity of British Columbia}. Um algoritmo conhecido e muito utilizado devido a robustez oferecida pelo mesmo no encontro de ponto-chave em imagens. As principais aplicações de SIFT incluem reconhecimento de objetos, mapeamento e navegação de robôs, modelagem 3D, reconhecimento de gestos, acompanhamento em vídeo. 
+
+SIFT é composto por duas etapas distintas: o detector e o descritor. As quais serão apresentadas com maior numero de detalhes nas seções seguintes ao decorrer deste capítulo
+
+\section{Etapas do Algoritmo SIFT}
+
+Como citado anteriormente, o detector e o descritor constituem as duas principais etapas do algoritmo de SIFT. O detector SIFT é baseado em cálculos de diferença de Gaussianas e o descritor utiliza histogramas de gradientes orientados para descrever a vizinhança local dos pontos de interesse~\cite{Lowe2004}. Ambas etapas tem o objetivo de encontrar e descrever pontos-chave, respectivamente. 
+
+No decorrer destas duas etapas principais pode-se subdividi-las em estágios, de maneira a entender de forma individual os procedimentos realizados no decorrer do algoritmo. Cada um destes estágios será explicado nas sub-sessões a seguir e podem ser observados na Figura~\ref{fig:Figura05}.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figuras/EtapasSIFT05.png}
+    \caption{Principais estágios do algoritmo SIFT. }
+    \label{fig:Figura05}
+\end{figure}
+
+
+
+\subsection{Detecção de extremos}
+
+O primeiro estágio do algoritmo SIFT, consiste em buscar por pontos que sejam invariantes a mudanças de escala da imagem, possibilitando a detecção de pontos com a câmera próxima ou distante do objeto de interesse. Tal objetivo é alcançado procurando por características estáveis em diferentes escalas utilizando uma função no espaço de escala, que neste caso é a função Gaussiana.
+
+Primeiramente uma imagem $I(x,y)$ passa a ser definida por uma função $L(x,y,\sigma)$, no espaço escala. Tal função é produzida pela convolução de uma função gaussiana $G(x,y,\sigma)$, com a Imagem, $I(x,y)$:
+\begin{equation}
+     L(x,y,\sigma) = G(x,y,\sigma)*I(x,y)
+\end{equation}
+onde $*$ é a operação de convolução em $x$ e $y$, e
+\begin{equation}
+   G(x,y,\sigma)=\frac{1}{2\pi\sigma^2} * e^{-(x^2+y^2/2\sigma^2)}
+\end{equation}
+este filtro é variável à escala através do parâmetro $\sigma$ ~\cite{Lowe2004}.
+
+Para detectar eficientemente pontos-chave estáveis no espaço de escala utiliza-se uma função DoG ( \textit{Difference of Gaussian}) formada pela diferença de imagens filtradas em escalas próximas, separadas por uma constante $k$. A definição da função DoG pode ser vista na Equação~\ref{dog}, onde $k$ é o fator da diferença entre duas escalas.
+\begin{equation}
+    DoG = G(x,y,k\sigma)-G(x,y,\sigma)
+    \label{dog}
+\end{equation}
+
+O resultado de efetuar a convolução de uma imagem com o filtro DoG é dado por:
+\begin{equation}
+D(x,y,\sigma) = (G(x,y,k\sigma)-G(x,y,\sigma))*I(x,y) 
+\end{equation}
+\begin{equation}
+D(x,y,\sigma) = L(x,y,k\sigma)-L(x,y,\sigma)
+\end{equation}
+
+A função DoG suaviza as imagens e pode ser calculada pela simples subtração de imagens borradas por um filtro Gaussiano em escalas $\sigma$ e $k\sigma$. O objetivo da mesma é conseguir amostras de imagens onde detalhes indesejados e ruídos sejam eliminados fazendo com que características fortes sejam realçadas~\cite{Lowe2004}. Variando $\sigma$ torna-se possível encontrar tais características em diferentes escalas, fortalecendo a invariância quanto a este fator.
+
+Durante os cálculos da função DoG utiliza-se uma representação que se parece com a computação de uma pilha de imagens, contendo níveis de detalhe no espaço de escala linear em um formato de pirâmide. Cada uma dessas pilhas em vários níveis de detalhe e é geralmente denominada como \textit{oitavas de Gaussianas}. Cada nível $f_i$ da pirâmide contém uma oitava obtida através da sub-amostragem sobre a oitava $f_{i-1}$, localizada no nível imediatamente inferior ~\cite{Maia2010}. 
+
+Este processo pode ser repetido indefinidamente até que se obtenha o nível de representação desejado. Esta estrutura é ilustrada na Figura~\ref{fig:Figura06}.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figuras/DoG06.png}
+    \caption{Representação do procedimento das Diferenças Gaussianas DoG para diversas oitavas de uma imagem. ~\cite{Lowe2004}}
+    \label{fig:Figura06}
+\end{figure}
+
+Com o fim processamento das oitavas por meio da função DoG, parte-se para a etapa onde será feita a detecção de extremos em cada intervalo de cada oitava. Para um valor extremo pode-se tomar qualquer valor da função DoG de um pixel que seja maior que todos os seus vizinhos no espaço-escala.
+
+Tais extremos são dados por valores de máximo ou mínimo locais para cada $D(x,y,\sigma)$, que podem ser obtidos através da comparação de cada ponto, neste caso pixel, com seus oito vizinhos na sua escala e com os nove vizinhos na escala imediatamente inferior e superior, conforme a representação da Figura~\ref{fig:Figura07}.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{figuras/MaxMin07.png}
+    \caption{Detecção de máximos e mínimos da função DoG aplicada as imagens por meio da comparação do pixel "X" a seus 26 vizinhos da escala atual e das adjacentes~\cite{Lowe2004}.}
+    \label{fig:Figura07}
+\end{figure}
+
+\subsection{Localização de Pontos-Chave}
+
+Definidos os pontos de máxima e mínima, passa-se a etapa de definição de pontos-chave e descarte de pontos considerados instáveis. Toma-se como princípio a ideia de que todos os pontos detectados como extremos são candidatos a pontos-chave, aqui calcula-se a posição exata destes pontos e efetua-se a validação de sua estabilidade.
+
+O método consiste em ajustar uma função quadrática 3D do ponto de amostragem local de modo a determinar uma localização interpolada do máximo. Esta abordagem utiliza as expansões de Taylor da função DoG aplicada a imagem, $D(x,y,\sigma)$, deslocada de modo que esteja localizada no ponto da amostragem~\cite{BL2002}. 
+
+\begin{equation}
+D(\bar{x}) = D+\frac{\partial D^T}{\partial{\bar{x}}} \bar{x} + \frac{1}{2} \bar{x}^T \frac{\partial^2 D}{\partial x^2} \bar{x} ...
+\label{01}
+\end{equation}
+\begin{equation}
+    \bar{x}=(x,y,\sigma)^T
+\end{equation}
+
+Onde o valor de $D$, sua primeira e a segunda derivadas são calculadas no ponto de amostragem $\bar{x}$, representam o deslocamento deste ponto. A localização de \textit{sub-pixeis} do pondo de interesse é dada pelo extremo da função na equação~\ref{01}. Esta localização, $\hat{x}$, é determinada ao ser calculada a derivada de $D(\bar{x})$ em relação a $\bar{x}$, e igualado o resultado a zero: 
+\begin{equation}
+\frac{\partial D}{\partial \bar{x}}+ \frac{\partial^2 D}{\partial \bar{x}^2} \hat{x} = 0
+\end{equation}
+
+Tem-se então a posição do extremo, dada por:
+
+\begin{equation}
+\hat{x} = - \frac{\partial^2 D^{T-1}}{\partial \bar{x}^2} \frac{\partial^2 D}{\partial \bar{x}}
+\label{02}
+\end{equation}
+
+O valor da função no extremo, $D(\bar{x})$, é útil para a rejeição de extremos instáveis com baixo contraste, que seriam sensíveis a ruído. Substituindo-se a equação~\ref{02} na equação~\ref{01} obtém-se:
+\begin{equation}
+D(\hat{x})=D+\frac{1}{2} \frac{\partial D^T}{\partial \bar{x}} \hat{x}
+\end{equation}
+
+Segundo Lowe é aconselhável que se rejeitem valores de $|D(\hat{x})|$ inferiores a um determinado limiar, em~\cite{Lowe2004} tal limiar era 0.03, assumindo-se que os tons de cinza de cada pixel estejam normalizados em valores entre $[0,1]$.
+
+Mesmo com esse procedimento para eliminação de valores que não ultrapassam o limiar, a função DoG ainda apresenta grandes diferenças ao longo de arestas fazendo com que estes pontos sejam escolhidos como pontos de interesse, o que não é desejável, tendo em vista que se busca por características invariantes as quais não se referem a arestas.
+
+Para eliminação destes pontos-chave próximos à arestas Lowe propôs o uso de uma matriz Hessiana 2x2, $H$, computada na localização e escala dos pontos-chave na função $D$.
+\begin{equation}
+    H(x,y) = \left[ \begin{array}{cc}
+    D_{xx} & D_{xy} \\
+    D_{xy} & D_{yy}
+    \end{array} \right]
+\end{equation}
+
+onde $D_{xy}$ é a derivada de $D(x,y,\sigma)$ na localização e escala em relação a $x$ e $y$; $D_{xx}$ é a derivada segunda em relação a $x$; e $D_{yy}$ é a derivada de segunda em relação a $y$. A matriz Hessiana representa assim uma segunda derivada, permitindo mensurar as magnitudes das curvaturas de $D$ a partir de seus autovalores~\cite{Lowe2004}.
+
+A partir da matriz $H$ calcula-se a soma dos autovalores pelo traço de $H$ e o produto pelo seu determinante:
+\begin{equation}
+Tr(H) = D_{xx} + D_{yy} = \alpha  + \beta 
+\end{equation}
+\begin{equation}
+Det(H) = D_{xx} D_{yy} - (D_{xy})^2 = \alpha \beta  
+\end{equation}
+
+Para os casos em que o determinante for negativo, as curvaturas possuem sinais diferentes, e o ponto é descartado, não sendo considerado um bom descritor.
+
+Todo esse processo matemático acima citado tem como principal objetivo a eliminação de pontos coletados pela primeira etapa do algoritmo que se encontram em extremidades ou arestas dos objetos, ou seja, que são fortes candidatos a sofrer influência de mudanças de escala, ponto de visão entre outras, tal invariância que é a grande proposta do algoritmo final, assim a permanência destes pontos poderia comprometer os resultados.
+
+\subsection{Atribuição de Orientação dos Descritores}
+
+Entrando na parte do descritor do algoritmo de SIFT, faz-se a atribuição de uma orientação a cada ponto-chave encontrado até este estágio, que futuramente será utilizada para construção de descritores invariantes a rotação, orientação esta que pode ser obtida através da análise de características locais da imagem.
+
+Para cada amostragem da imagem na escala $L(x,y,\sigma)$, calcula-se a magnitude $m(x,y)$ e a orientação $\theta(x,y)$ do gradiente usando as diferenças de pixeis, o cálculo desses valores pode ser observado nas equações~\ref{eq:Mag} e~\ref{eq:Ori}.
+
+\begin{equation}
+m(x,y) = \sqrt{\left( (L(x+1,y)-L(x-1,y))^2 + \\ (L(x,y+1)-L(x,y-1))^2 \right)}
+\label{eq:Mag}
+\end{equation}
+\begin{equation}
+\theta(x,y) = tan^{-1}\left( \frac{L(x,y+1)-L(x,y-1)}{L(x+1,y)-L(x-1,y)} \right)
+\label{eq:Ori}
+\end{equation}
+
+
+Monta-se então a partir das equações um histograma das orientações para os pixeis em uma região vizinha ao redor do ponto-chave. O histograma possui 36 regiões, cobrindo todas orientações possíveis de $(0$ a $2\pi)$, como pode ser visto na representação de Figura~\ref{fig:Figura08}. 
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=\textwidth]{figuras/Histograma08.png}
+    \caption{Histograma de orientações de um ponto-chave ~\cite{Lowe2004}.}
+    \label{fig:Figura08}
+\end{figure}
+
+Cada ponto da vizinhança do ponto-chave é adicionado ao histograma com um valor e um peso determinado, o primeiro é o valor da magnitude $m(x,y)$ de cada ponto adicionado, o segundo peso é dado por uma janela Gaussiana circular com $\sigma '$ igual a 1,5 vezes maior que a escala do ponto chave, a qual pode ser definida pela seguinte equação:
+\begin{equation}
+ g(\Delta x, \Delta y, \sigma') = \frac{1}{2 \pi \sigma'^2} e^{-(\Delta x^2 + \Delta y^2)2\sigma'^2}
+\end{equation}
+onde $\Delta x$ e $\Delta y$ são as distâncias entre cada ponto verificado e o ponto-chave.
+
+Picos no histograma de orientação correspondem a orientações dominantes dos gradientes locais. Com base no máximo, mas não exclusivamente nele, define-se a orientação do ponto-chave. Picos que correspondem a pelo menos $80\%$ do valor do pico máximo também são considerados, implicando que um ponto-chave poderá ter mais de uma orientação associada. 
+
+Quando a atribuição varias orientações acontece, o ponto-chave torna-se ainda mais estável para uma identificação futura. Ao final do processo uma parábola é usada para interpolar os três valores do histograma mais próximos do pico de forma a se obter uma melhor exatidão de sua posição~\cite{Lowe2004}.
+
+Ao final desta etapa cada ponto-chave contém 4 dimensões: sua posição $x$ e $y$, magnitude e orientação. A partir de então pode-se partir para o próximo estágio do algoritmo onde serão construídos os descritores locais sendo este o ultimo estágio da etapa de reconhecimento.
+
+
+\subsection{Construção do Descritor Local}
+
+O próximo estágio do descritor de SIFT é efetuar a atribuição de um descritor invariante a iluminação e do ponto de vista 3D, tornando-os bem distinguíveis. Este descritor será calculado com base nos valores normalizados para cada ponto chave da imagem que passou por todas os estágios anteriores do algoritmo.
+
+Com o intuito de montar descritores com invariância a rotação, é necessário que as orientações dos gradientes destes pontos sejam giradas de um ângulo correspondente à orientação do ponto-chave definida na seção anterior~\cite{Lowe2004}.
+
+O descritor do ponto-chave é então criado computando-se as magnitudes e orientações dos gradientes, que são amostrados ao redor da localização do ponto-chave. Tal procedimento pode ser visualizado na Figura~\ref{fig:Figura09}.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=\textwidth]{figuras/descritor09.png}
+    \caption{Um descritor de um ponto-chave B) é criado a partir do cálculo de uma função Gaussiana para dar peso à magnitude de cada ponto da vizinhança (representados pelas setas) do ponto-chave A). Neste exemplo são acumulados para cada histograma de orientação C) a soma da magnitude dos gradientes próximos aquela direção de uma das regiões 4x4 da imagem A). Esta figura demostra um vetor descritor de 2x2 computado de um conjunto 8x8 de gradientes.}
+    \label{fig:Figura09}
+\end{figure}
+
+Mesmo com a aplicação dessas técnicas duas imagens de um mesmo objeto podem possuir variações de luminosidade que modifiquem sensivelmente os descritores obtidos, este problema é solucionado efetuando a normalização do descritor, assim o mesmo terá característica de invariância à luminosidade.
+
+Para cada imagem são construídos diversos descritores usando as ferramentas apresentadas até então, e cada um deles é referente a exclusivamente um ponto-chave. Tem-se como resultado, portanto, um conjunto de descritores robustos que podem ser utilizados para fazer a correspondência entre imagens, processo que será detalhado na próxima seção. Todos os detalhes sobre o processo de construção dos descritores SIFT e encontro de pontos-chave são encontrados em ~\cite{L99} e ~\cite{Lowe2004}.
+
+\section{Encontro de Correspondências:~\textit{Matching}}
+
+Após a execução de toda parte de processamento de características, finalmente, é chegada a hora de utilizá-las para efetuar a correspondência entre duas imagens procurando por pontos correspondentes entre elas. Uma representação do processo de correspondência entre imagens pode ser visto na Figura~\ref{fig:Figura10}. Tal correspondência entre os descritores da imagem baseia-se no quanto parecidos são os descritores.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figuras/Matching10.png}
+    \caption{Processo de correspondência entre duas imagens através da técnica SIFT.}
+    \label{fig:Figura10}
+\end{figure}
+
+A obtenção de uma solução robusta para o problema de comparação entre os vetores descritores pode ser considerada como um elemento chave na identificação de objetos, pois quanto melhor for essa solução mais rapidamente os objetos serão reconhecidos ou descartados.
+
+Na abordagem SIFT, os vetores descritores podem ser comparados, por exemplo, utilizando a distância Euclidiana. Geralmente, pontos candidatos a melhor correspondência são pontos próximos dessa maneira o melhor candidato ao \textit{matching} é o ponto com menor distância Euclidiana.
+
+Em sua abordagem Lowe, \cite{Lowe2004}, utilizou uma modificação do algoritmo conhecido como Árvore k-d chamado de \textit{Best-Bin-First}(BBF), que pode identificar vizinhos com elevada probabilidade, utilizando uma quantidade inferior de esforço computacional.
+
+Porém por ser um método probabilístico, alguns pontos instáveis são detectados como corretos ao longo do processo, levando a falsas correspondências. para eliminação deste problema, Lowe usou além da comparação da menor distância a comparação da segunda melhor distância, selecionando apenas correspondentes próximos a um limiar. Utilizando um limiar de 0.8, como valor máximo em relação a distância de 2 pontos, é possível eliminar 90\% das falsas correlações, porém apenas descartando 5\% das correspondências corretas. Portanto, de maneira eficiente as correspondências são refinadas e os falsos pares são descartados.
+
+A partir das explicações deste capítulo, pode-se formar uma ideia mais sólida do funcionamento de cada parte do algoritmo de SIFT e de um SVA, desde a captura das imagens e aplicação dos primeiros filtros de aperfeiçoamento até a execução de métodos sofisticados e com grande poder de reconhecimento como o próprio SIFT. 
